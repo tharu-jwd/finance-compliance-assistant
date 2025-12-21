@@ -1,4 +1,4 @@
-# Finance Compliance Assistant
+# Sri Lankan Finance Compliance Assistant
 
 A RAG (Retrieval Augmented Generation) chatbot that helps users understand Sri Lankan financial regulations, banking circulars, and compliance requirements.
 
@@ -29,8 +29,8 @@ A RAG (Retrieval Augmented Generation) chatbot that helps users understand Sri L
 ### 2. Installation
 ```bash
 # Clone and setup
-git clone <repo-url>
-cd financial-rag
+git clone https://github.com/tharu-jwd/finance-compliance-assistant
+cd finance-compliance-assistant
 
 # Install dependencies
 pip install -r requirements.txt
