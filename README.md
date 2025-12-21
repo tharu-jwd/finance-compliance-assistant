@@ -1,14 +1,14 @@
 # Sri Lankan Financial Regulation Compliance Assistant
 
-A RAG (Retrieval-Augmented Generation) chatbot that helps users understand Sri Lankan financial regulations, banking circulars, and compliance requirements.
+A RAG (Retrieval Augmented Generation) chatbot that helps users understand Sri Lankan financial regulations, banking circulars, and compliance requirements.
 
 ## Features
 
-- 🤖 **AI-Powered Q&A**: Chat interface powered by Llama 3.1 8B
-- 📚 **Document Search**: Vector-based search through regulatory documents
-- 🏦 **Sri Lankan Focus**: Specialized for CBSL, Companies Act, and local standards
-- 🔗 **Source Citations**: Shows relevant document sources for each answer
-- 🌐 **Self-Hosted**: Runs on your own infrastructure for data privacy
+- **AI-Powered Q&A**: Chat interface powered by Llama 3.1 8B
+- **Document Search**: Vector-based search through regulatory documents
+- **Sri Lankan Focus**: Specialized for CBSL, Companies Act, and local standards
+- **Source Citations**: Shows relevant document sources for each answer
+- **Self-Hosted**: Runs on your own infrastructure for data privacy
 
 ## Architecture
 
@@ -87,16 +87,8 @@ The system processes documents from:
 
 ## Limitations
 
-⚠️ **Important**: This system is for informational purposes only. Always consult official regulatory sources and legal professionals for compliance decisions.
-
-## Development
-
-Built for portfolio demonstration of:
-- RAG system implementation
-- Local LLM deployment  
-- Document processing and vector search
-- Streamlit application development
+**Important**: This system is for informational purposes only. Always consult official regulatory sources and legal professionals for compliance decisions.
 
 ---
 
-🤖 **Powered by**: Llama 3.1 8B • ChromaDB • LangChain • Streamlit
+**Powered by**: Llama 3.1 8B • ChromaDB • LangChain • Streamlit
