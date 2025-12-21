@@ -1,4 +1,4 @@
-# Sri Lankan Financial Regulation Compliance Assistant
+# Finance Compliance Assistant
 
 A RAG (Retrieval Augmented Generation) chatbot that helps users understand Sri Lankan financial regulations, banking circulars, and compliance requirements.
 
