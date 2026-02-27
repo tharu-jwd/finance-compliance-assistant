@@ -42,12 +42,34 @@ tab_upload, tab_chat, tab_eval = st.tabs(
 with tab_upload:
     st.header("Upload Regulatory PDFs")
 
+    MAX_FILE_SIZE_MB = 10
+    MAX_FILES_PER_UPLOAD = 5
+
     uploaded_files = st.file_uploader(
         "Upload regulatory PDFs",
         type="pdf",
         accept_multiple_files=True,
         key="pdf_uploader"
     )
+
+    if uploaded_files:
+        if len(uploaded_files) > MAX_FILES_PER_UPLOAD:
+            st.error(f"Max {MAX_FILES_PER_UPLOAD} files per upload.")
+            uploaded_files = []
+
+        for f in uploaded_files:
+            size_mb = len(f.getvalue()) / (1024 * 1024)
+            if size_mb > MAX_FILE_SIZE_MB:
+                st.error(f"{f.name} exceeds {MAX_FILE_SIZE_MB}MB limit.")
+                uploaded_files = []
+                break
+
+    MAX_TOTAL_VECTORS = 10000
+
+    current_vectors = processor.get_collection_stats().get("total_documents", 0)
+    if current_vectors >= MAX_TOTAL_VECTORS:
+        st.error(f"Index is full ({current_vectors} vectors). No more uploads allowed.")
+        uploaded_files = []
 
     if uploaded_files:
         if st.button("Process uploaded files"):
