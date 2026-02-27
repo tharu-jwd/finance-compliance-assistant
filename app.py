@@ -1,211 +1,264 @@
-# Minimal working RAG app with basic vector search
+"""Sri Lankan Financial Regulation RAG Assistant — Streamlit Cloud edition."""
 
 import streamlit as st
-import ollama
-import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
-from config import *
+from langchain_groq import ChatGroq
+from langchain_core.messages import HumanMessage, SystemMessage
 
-# Initialize session state
-if 'messages' not in st.session_state:
-    st.session_state.messages = []
+from config import GROQ_API_KEY, GROQ_MODEL, MAX_TOKENS, TEMPERATURE
+from document_processor import DocumentProcessor
 
-if 'documents' not in st.session_state:
-    st.session_state.documents = []
+# ---------------------------------------------------------------------------
+# Page config
+# ---------------------------------------------------------------------------
+st.set_page_config(
+    page_title="Sri Lankan Financial Regulation Assistant",
+    page_icon="🏦",
+    layout="wide"
+)
 
-if 'embeddings' not in st.session_state:
-    st.session_state.embeddings = []
+st.title("Sri Lankan Financial Regulation Assistant")
+st.caption("Retrieval-Augmented Generation powered by Groq + HuggingFace")
 
-class MinimalRAG:
-    def __init__(self):
-        """Initialize minimal RAG system."""
-        self.ollama_client = ollama.Client(host=OLLAMA_HOST)
-        
-        # Add some sample regulatory documents
-        self.sample_docs = [
-            "KYC requirements in Sri Lanka include identity verification, address proof, and source of funds documentation for all financial transactions above LKR 100,000.",
-            "Digital payment providers must obtain license from CBSL and comply with anti-money laundering regulations including transaction monitoring and suspicious activity reporting.",
-            "Capital adequacy ratio for banks in Sri Lanka must be maintained at minimum 12.5% as per CBSL guidelines, with Tier 1 capital ratio of at least 8.5%.",
-            "Cross-border payments require proper documentation including invoice, import/export permits, and foreign exchange declaration forms as per CBSL regulations.",
-            "Cryptocurrency trading and exchanges are not legally recognized in Sri Lanka and CBSL has issued warnings against their use for payments."
-        ]
-        
-        # Generate embeddings for sample documents
-        self._initialize_sample_data()
-    
-    def _initialize_sample_data(self):
-        """Generate embeddings for sample documents."""
-        st.session_state.documents = self.sample_docs
-        st.session_state.embeddings = []
-        
-        for doc in self.sample_docs:
-            try:
-                response = self.ollama_client.embeddings(
-                    model=EMBEDDING_MODEL,
-                    prompt=doc
-                )
-                st.session_state.embeddings.append(response['embedding'])
-            except Exception as e:
-                st.error(f"Error generating embeddings: {e}")
-                return False
-        return True
-    
-    def search_documents(self, query: str, top_k: int = 3):
-        """Search for relevant documents using cosine similarity."""
-        try:
-            # Generate query embedding
-            query_response = self.ollama_client.embeddings(
-                model=EMBEDDING_MODEL,
-                prompt=query
-            )
-            query_embedding = query_response['embedding']
-            
-            # Calculate similarities
-            if not st.session_state.embeddings:
-                return []
-            
-            similarities = cosine_similarity(
-                [query_embedding], 
-                st.session_state.embeddings
-            )[0]
-            
-            # Get top matches
-            top_indices = np.argsort(similarities)[::-1][:top_k]
-            
-            results = []
-            for i in top_indices:
-                results.append({
-                    'content': st.session_state.documents[i],
-                    'score': float(similarities[i])
-                })
-            
-            return results
-            
-        except Exception as e:
-            st.error(f"Search error: {e}")
-            return []
-    
-    def generate_response(self, query: str, context_docs: list) -> str:
-        """Generate response using retrieved context."""
-        try:
-            # Prepare context
-            context = ""
-            if context_docs:
-                context = "\n\n".join([doc['content'] for doc in context_docs[:2]])
-            
-            # Create prompt
-            prompt = f"""You are an expert on Sri Lankan financial regulations. Answer the question using the provided context.
+# ---------------------------------------------------------------------------
+# Cached resource — one DocumentProcessor for the whole session
+# ---------------------------------------------------------------------------
+@st.cache_resource(show_spinner="Initialising vector database…")
+def get_processor() -> DocumentProcessor:
+    return DocumentProcessor()
 
-CONTEXT:
-{context}
 
-QUESTION: {query}
+processor = get_processor()
 
-ANSWER (be brief and accurate):"""
-            
-            # Generate response
-            response = self.ollama_client.generate(
-                model=LLM_MODEL,
-                prompt=prompt,
-                options={
-                    'temperature': 0.1,
-                    'num_predict': 150
-                }
-            )
-            
-            return response['response']
-            
-        except Exception as e:
-            return f"Error: {e}"
+# ---------------------------------------------------------------------------
+# Tabs
+# ---------------------------------------------------------------------------
+tab_upload, tab_chat, tab_eval = st.tabs(
+    ["📂 Upload Documents", "💬 Chat", "📊 RAGAS Evaluation"]
+)
 
-def main():
-    st.set_page_config(
-        page_title="Financial RAG Assistant",
-        page_icon="🏦",
-        layout="wide"
+# ===========================================================================
+# TAB 1 — Upload Documents
+# ===========================================================================
+with tab_upload:
+    st.header("Upload Regulatory PDFs")
+
+    uploaded_files = st.file_uploader(
+        "Upload regulatory PDFs",
+        type="pdf",
+        accept_multiple_files=True,
+        key="pdf_uploader"
     )
-    
-    st.title("Financial Regulation Assistant")
-    st.markdown("With Retrieval Augmented Generation (RAG) powered by Ollama.")
-    
-    # Initialize RAG system
-    if 'rag_system' not in st.session_state:
-        with st.spinner("Initializing RAG system..."):
-            try:
-                st.session_state.rag_system = MinimalRAG()
-                st.success("Initialized with sample documents")
-            except Exception as e:
-                st.error(f"Failed to initialize: {e}")
-                st.session_state.rag_system = None
-    
-    # Sidebar
-    with st.sidebar:
-        st.header("System Status")
-        
-        if st.session_state.rag_system:
-            st.metric("Documents", len(st.session_state.documents))
-            st.metric("Embeddings", len(st.session_state.embeddings))
-            
-            st.subheader("Sample Documents")
-            for i, doc in enumerate(st.session_state.documents[:3]):
-                st.write(f"**Doc {i+1}:** {doc[:100]}...")
-    
-    # Chat interface
-    st.subheader("Chat")
-    
-    # Display messages
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-            
-            if message["role"] == "assistant" and "sources" in message:
-                with st.expander("📚 Retrieved Documents"):
-                    for i, source in enumerate(message["sources"]):
-                        st.write(f"**Source {i+1}** (Score: {source['score']:.3f})")
-                        st.write(source['content'])
-                        st.write("---")
-    
-    # Chat input
-    if query := st.chat_input("Ask about financial regulations..."):
-        if not st.session_state.rag_system:
-            st.error("RAG system not initialized")
-            return
-        
-        # Add user message
+
+    if uploaded_files:
+        if st.button("Process uploaded files"):
+            newly_added = 0
+            progress = st.progress(0)
+            for i, f in enumerate(uploaded_files):
+                with st.spinner(f"Processing {f.name}…"):
+                    chunks = processor.process_uploaded_file(f)
+                    newly_added += chunks
+                progress.progress((i + 1) / len(uploaded_files))
+
+            st.success(f"Added {newly_added} chunks from {len(uploaded_files)} file(s).")
+
+    stats = processor.get_collection_stats()
+    total = stats.get("total_documents", 0)
+    st.metric("Total chunks in ChromaDB", total)
+
+    if total == 0:
+        st.warning("No documents in the database yet. Upload PDFs above to get started.")
+
+# ===========================================================================
+# TAB 2 — Chat
+# ===========================================================================
+with tab_chat:
+    st.header("Ask a Regulatory Question")
+
+    stats = processor.get_collection_stats()
+    if stats.get("total_documents", 0) == 0:
+        st.warning("No documents uploaded yet. Go to **Upload Documents** first.")
+
+    # Session state for chat history
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    # Render history
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            if msg["role"] == "assistant" and msg.get("sources"):
+                with st.expander("Sources"):
+                    for src in msg["sources"]:
+                        meta = src.get("metadata", {})
+                        filename = meta.get("source", "Unknown")
+                        page = meta.get("page", "?")
+                        score = src.get("similarity_score", 0)
+                        preview = src["content"][:200]
+                        st.markdown(
+                            f"**{filename}** — page {page} &nbsp; *(score: {score:.3f})*\n\n"
+                            f"> {preview}…"
+                        )
+                        st.divider()
+
+    # Input
+    if query := st.chat_input("Ask about financial regulations…"):
         st.session_state.messages.append({"role": "user", "content": query})
         with st.chat_message("user"):
             st.markdown(query)
-        
-        # Search and generate response
+
         with st.chat_message("assistant"):
-            with st.spinner("Searching documents and generating response..."):
-                # Search relevant documents
-                relevant_docs = st.session_state.rag_system.search_documents(query)
-                
-                # Generate response
-                response = st.session_state.rag_system.generate_response(query, relevant_docs)
-                
-                st.markdown(response)
-                
-                # Show sources
-                if relevant_docs:
-                    with st.expander("Retrieved Documents"):
-                        for i, source in enumerate(relevant_docs):
-                            st.write(f"**Source {i+1}** (Score: {source['score']:.3f})")
-                            st.write(source['content'])
-                            st.write("---")
-        
-        # Add assistant message
+            with st.spinner("Searching and generating…"):
+                sources = processor.search_similar_documents(query)
+
+                context = "\n\n".join(
+                    [f"[Source: {s['metadata'].get('source','?')}, "
+                     f"page {s['metadata'].get('page','?')}]\n{s['content']}"
+                     for s in sources]
+                ) if sources else "No relevant documents found."
+
+                llm = ChatGroq(
+                    model=GROQ_MODEL,
+                    api_key=GROQ_API_KEY,
+                    temperature=TEMPERATURE,
+                    max_tokens=MAX_TOKENS
+                )
+
+                messages = [
+                    SystemMessage(content=(
+                        "You are an expert on Sri Lankan financial regulations. "
+                        "Answer accurately and concisely using only the provided context. "
+                        "If the context does not contain enough information, say so."
+                    )),
+                    HumanMessage(content=f"Context:\n{context}\n\nQuestion: {query}")
+                ]
+
+                response = llm.invoke(messages)
+                answer = response.content
+
+            st.markdown(answer)
+
+            if sources:
+                with st.expander("Sources"):
+                    for src in sources:
+                        meta = src.get("metadata", {})
+                        filename = meta.get("source", "Unknown")
+                        page = meta.get("page", "?")
+                        score = src.get("similarity_score", 0)
+                        preview = src["content"][:200]
+                        st.markdown(
+                            f"**{filename}** — page {page} &nbsp; *(score: {score:.3f})*\n\n"
+                            f"> {preview}…"
+                        )
+                        st.divider()
+
         st.session_state.messages.append({
             "role": "assistant",
-            "content": response,
-            "sources": relevant_docs
+            "content": answer,
+            "sources": sources
         })
-    
-    # Clear chat
-    if st.button("Clear Chat"):
+
+    if st.button("Clear chat"):
         st.session_state.messages = []
         st.rerun()
 
-if __name__ == "__main__":
-    main()
+# ===========================================================================
+# TAB 3 — RAGAS Evaluation
+# ===========================================================================
+with tab_eval:
+    st.header("RAGAS Evaluation")
+    st.caption(
+        "Runs 5 test questions through the RAG pipeline and scores with "
+        "**faithfulness** and **context_precision**."
+    )
+
+    TEST_QUESTIONS = [
+        "What are the KYC requirements for digital wallets?",
+        "What is the minimum capital adequacy ratio for banks?",
+        "What documentation is required for cross-border payments?",
+        "Are cryptocurrencies legally recognized in Sri Lanka?",
+        "What are the AML reporting requirements for payment providers?",
+    ]
+
+    st.subheader("Test questions")
+    for i, q in enumerate(TEST_QUESTIONS, 1):
+        st.write(f"{i}. {q}")
+
+    if st.button("Run Evaluation"):
+        stats = processor.get_collection_stats()
+        if stats.get("total_documents", 0) == 0:
+            st.error("No documents in the database. Upload PDFs first.")
+        else:
+            with st.spinner("Running RAG pipeline for each question…"):
+                eval_llm = ChatGroq(
+                    model=GROQ_MODEL,
+                    api_key=GROQ_API_KEY,
+                    temperature=TEMPERATURE,
+                    max_tokens=MAX_TOKENS
+                )
+
+                questions = []
+                answers = []
+                contexts_list = []
+
+                progress = st.progress(0)
+                for i, question in enumerate(TEST_QUESTIONS):
+                    sources = processor.search_similar_documents(question)
+                    context_texts = [s["content"] for s in sources]
+
+                    context_str = "\n\n".join(context_texts) if context_texts else "No context found."
+
+                    messages = [
+                        SystemMessage(content=(
+                            "You are an expert on Sri Lankan financial regulations. "
+                            "Answer accurately using only the provided context."
+                        )),
+                        HumanMessage(content=f"Context:\n{context_str}\n\nQuestion: {question}")
+                    ]
+                    response = eval_llm.invoke(messages)
+
+                    questions.append(question)
+                    answers.append(response.content)
+                    contexts_list.append(context_texts)
+
+                    progress.progress((i + 1) / len(TEST_QUESTIONS))
+
+            with st.spinner("Computing RAGAS metrics…"):
+                try:
+                    from datasets import Dataset
+                    from ragas import evaluate
+                    from ragas.metrics import faithfulness, context_precision
+                    from ragas.llms import LangchainLLMWrapper
+
+                    evaluator_llm = LangchainLLMWrapper(
+                        ChatGroq(
+                            model=GROQ_MODEL,
+                            api_key=GROQ_API_KEY,
+                            temperature=0
+                        )
+                    )
+
+                    eval_dataset = Dataset.from_dict({
+                        "question": questions,
+                        "answer": answers,
+                        "contexts": contexts_list,
+                    })
+
+                    result = evaluate(
+                        eval_dataset,
+                        metrics=[faithfulness, context_precision],
+                        llm=evaluator_llm
+                    )
+
+                    st.success("Evaluation complete!")
+                    st.dataframe(result.to_pandas())
+
+                except Exception as e:
+                    st.error(f"RAGAS evaluation failed: {e}")
+                    st.info("Showing raw answers instead.")
+                    import pandas as pd
+                    df = pd.DataFrame({
+                        "Question": questions,
+                        "Answer": answers,
+                        "Num contexts retrieved": [len(c) for c in contexts_list]
+                    })
+                    st.dataframe(df)

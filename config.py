@@ -1,9 +1,23 @@
 # Configuration settings for Financial Regulation Compliance Assistant
 
-# Ollama Server Configuration
-OLLAMA_HOST = "http://192.168.1.43:11434"
-LLM_MODEL = "llama3.1:8b"
-EMBEDDING_MODEL = "nomic-embed-text"
+import os
+import streamlit as st
+
+
+def get_secret(key):
+    try:
+        return st.secrets[key]
+    except Exception:
+        return os.environ.get(key)
+
+
+# API Keys
+GROQ_API_KEY = get_secret("GROQ_API_KEY")
+HUGGINGFACE_API_KEY = get_secret("HUGGINGFACE_API_KEY")
+
+# Model Configuration
+GROQ_MODEL = "llama-3.1-8b-instant"
+EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1"
 
 # Vector Database Configuration
 VECTOR_DB_PATH = "./vector_store"
