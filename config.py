@@ -14,14 +14,14 @@ def get_secret(key):
 # API Keys
 GROQ_API_KEY = get_secret("GROQ_API_KEY")
 HUGGINGFACE_API_KEY = get_secret("HUGGINGFACE_API_KEY")
+PINECONE_API_KEY = get_secret("PINECONE_API_KEY")
 
 # Model Configuration
 GROQ_MODEL = "llama-3.1-8b-instant"
 EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1"
 
 # Vector Database Configuration
-VECTOR_DB_PATH = "./vector_store"
-COLLECTION_NAME = "financial_regulations"
+PINECONE_INDEX_NAME = "financial-regulations"
 
 # Document Processing Configuration
 CHUNK_SIZE = 1000

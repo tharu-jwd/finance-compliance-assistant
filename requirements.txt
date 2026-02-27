@@ -5,7 +5,8 @@ langchain-core
 langchain-text-splitters
 langchain-groq
 langchain-huggingface
-chromadb
+pinecone
+langchain-pinecone
 pypdf
 ragas
 numpy
